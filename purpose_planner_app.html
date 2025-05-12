@@ -1,0 +1,553 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Kingdom Teatime: The Purpose Planner</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      min-height: 100vh;
+      margin: 0;
+      touch-action: manipulation;
+    }
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      padding: 4vw;
+      border-radius: 8px;
+    }
+    .page {
+      display: none;
+      padding: 4vw;
+      border: 1px solid #ddd;
+      margin-bottom: 4vw;
+      background: #fff;
+      position: relative;
+      animation: slideIn 0.5s ease-in-out;
+    }
+    .page.active {
+      display: block;
+    }
+    h1 {
+      font-size: 6vw;
+      color: #6b21a8;
+      text-align: center;
+    }
+    h2 {
+      font-size: 5vw;
+      color: #6b21a8;
+      text-align: center;
+    }
+    p {
+      line-height: 1.6;
+      color: #333;
+      font-size: 4vw;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 2vw;
+      margin: 2vw 0 4vw;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 4vw;
+      box-sizing: border-box;
+      transition: border 0.3s ease, transform 0.2s ease;
+    }
+    input:focus, textarea:focus {
+      border: 2px solid #6b21a8;
+      outline: none;
+      transform: scale(1.02);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 20vw;
+    }
+    .buttons {
+      text-align: center;
+      margin-top: 4vw;
+      display: flex;
+      justify-content: center;
+      gap: 4vw;
+    }
+    button {
+      padding: 3vw 6vw;
+      background: #6b21a8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 4.5vw;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled), button:active:not(:disabled) {
+      background: #7e22ce;
+      transform: scale(1.05);
+      box-shadow: 0 0 10px rgba(107, 33, 168, 0.5);
+    }
+    .fallback-nav {
+      text-align: center;
+      margin-top: 2vw;
+      font-size: 3.5vw;
+    }
+    .fallback-nav a {
+      color: #6b21a8;
+      text-decoration: underline;
+      margin: 0 2vw;
+    }
+    .footer {
+      text-align: center;
+      font-size: 3vw;
+      color: #666;
+      margin-top: 4vw;
+    }
+    /* Realistic Christian-themed animations */
+    .cross-animation {
+      position: absolute;
+      top: 2vw;
+      right: 2vw;
+      width: 6vw;
+      height: 6vw;
+      animation: haloGlow 2s ease-in-out infinite;
+    }
+    .cross-animation svg path {
+      fill: #ffd700;
+      filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8));
+    }
+    .dove-animation {
+      position: absolute;
+      bottom: 2vw;
+      left: 2vw;
+      width: 8vw;
+      height: 8vw;
+      animation: doveFly 2s ease-in-out infinite;
+    }
+    .dove-animation svg path {
+      fill: #ffffff;
+      stroke: #ccc;
+      stroke-width: 1;
+    }
+    .dove-animation svg .wing {
+      animation: wingFlap 0.5s ease-in-out infinite;
+    }
+    .praying-hands-animation {
+      position: absolute;
+      top: 2vw;
+      right: 2vw;
+      width: 6vw;
+      height: 6vw;
+      animation: handsPray 3s ease-in-out infinite;
+    }
+    .praying-hands-animation svg path {
+      fill: #f5deb3;
+      stroke: #d2b48c;
+      stroke-width: 1;
+    }
+    .star-animation {
+      position: absolute;
+      bottom: 2vw;
+      left: 2vw;
+      width: 6vw;
+      height: 6vw;
+      animation: starShimmer 1.5s ease-in-out infinite;
+    }
+    .star-animation svg path {
+      fill: #ffd700;
+      filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.7));
+    }
+    .heart-animation {
+      position: absolute;
+      top: 2vw;
+      right: 2vw;
+      width: 6vw;
+      height: 6vw;
+      animation: heartBeat 1s ease-in-out infinite;
+    }
+    .heart-animation svg path {
+      fill: #ff6f61;
+      filter: drop-shadow(0 0 5px rgba(255, 111, 97, 0.5));
+    }
+    .bible-animation {
+      position: absolute;
+      bottom: 2vw;
+      left: 2vw;
+      width: 6vw;
+      height: 6vw;
+      perspective: 200px;
+      animation: bibleOpen 4s ease-in-out infinite;
+    }
+    .bible-animation svg rect {
+      fill: #8b4513;
+      stroke: #654321;
+      stroke-width: 1;
+    }
+    .bible-animation svg .pages {
+      fill: #fff5e6;
+      animation: pageGlow 4s ease-in-out infinite;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes haloGlow {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+    @keyframes doveFly {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2vw); }
+    }
+    @keyframes wingFlap {
+      0%, 100% { transform: rotate(0); }
+      50% { transform: rotate(20deg); }
+    }
+    @keyframes handsPray {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(1vw); }
+    }
+    @keyframes starShimmer {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    @keyframes heartBeat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+    @keyframes bibleOpen {
+      0%, 100% { transform: rotateY(0deg); }
+      50% { transform: rotateY(40deg); }
+    }
+    @keyframes pageGlow {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    .blessing {
+      text-align: center;
+      font-size: 6vw;
+      color: #6b21a8;
+      animation: fadeIn 2s ease-in;
+    }
+    @media (min-width: 768px) {
+      .container { max-width: 800px; padding: 20px; }
+      .page { padding: 20px; margin-bottom: 20px; }
+      h1 { font-size: 2.5rem; }
+      h2 { font-size: 1.5rem; }
+      p { font-size: 1rem; }
+      input, textarea { padding: 8px; margin: 5px 0 15px; font-size: 1rem; }
+      textarea { min-height: 80px; }
+      .buttons { margin-top: 20px; gap: 10px; }
+      button { padding: 10px 20px; font-size: 1rem; }
+      .fallback-nav { font-size: 1rem; }
+      .fallback-nav a { margin: 0 10px; }
+      .footer { font-size: 0.9rem; }
+      .cross-animation, .praying-hands-animation, .heart-animation { width: 30px; height: 30px; }
+      .dove-animation, .star-animation, .bible-animation { width: 40px; height: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Page 1: Cover -->
+    <div class="page active" id="page1">
+      <div class="cross-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2v8H4v4h8v8h4v-8h8v-4h-8V2z"/>
+        </svg>
+      </div>
+      <h1>Kingdom Teatime: The Purpose Planner</h1>
+      <h2>A 7-day planning guide to uncover your purpose and passion</h2>
+      <p><em>Each of us has a unique purpose that cannot be replaced by another person.</em></p>
+      <p><strong>Your Divine Purpose Is Destiny Swapping-Proof!</strong></p>
+      <p style="text-align: center; font-size: 3vw;">Copyright © Kingdom Teatime</p>
+    </div>
+
+    <!-- Page 2: Intro -->
+    <div class="page" id="page2">
+      <div class="dove-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/>
+          <path class="wing" d="M14 8c0-2.2-1.8-4-4-4S6 5.8 6 8" transform-origin="center"/>
+        </svg>
+      </div>
+      <h2>Introduction</h2>
+      <label>Name:</label>
+      <input type="text" id="name" placeholder="Enter your name">
+      <label>Date:</label>
+      <input type="date" id="date">
+      <p><em>"For we are His workmanship, created in Christ Jesus for good works..." - Ephesians 2:10</em></p>
+      <p>Your calling is not a destination - it's a divine identity...</p>
+      <p><strong>You chase the Kingdom.</strong></p>
+    </div>
+
+    <!-- Page 3: Day 1 -->
+    <div class="page" id="page3">
+      <div class="praying-hands-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2c-5 0-9 4-9 9v11h6v-8h6v8h6V11c0-5-4-9-9-9z"/>
+        </svg>
+      </div>
+      <h2>Day 1: Your Purpose to Serve</h2>
+      <label>How do you like to serve others?</label>
+      <textarea id="day1_serveOthers" placeholder="Describe how you serve others"></textarea>
+      <label>How can you serve others with your gifts and talents right now?</label>
+      <textarea id="day1_gifts" placeholder="List your gifts and talents"></textarea>
+    </div>
+
+    <!-- Page 4: Day 2 -->
+    <div class="page" id="page4">
+      <div class="star-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </div>
+      <h2>Day 2: Your Unique Gifts for a Purpose</h2>
+      <label>When are you at your best self?</label>
+      <textarea id="day2_bestSelf" placeholder="Describe when you feel at your best"></textarea>
+      <label>What do you naturally do well?</label>
+      <textarea id="day2_naturallyWell" placeholder="List your natural talents"></textarea>
+    </div>
+
+    <!-- Page 5: Day 3 -->
+    <div class="page" id="page5">
+      <div class="heart-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+      </div>
+      <h2>Day 3: Your Purpose Others See</h2>
+      <p>It's time to interview your friends, family, or colleagues...</p>
+      <label>Person 1:</label>
+      <input type="text" id="day3_person1" placeholder="Enter name">
+      <label>Person 2:</label>
+      <input type="text" id="day3_person2" placeholder="Enter name">
+      <label>Person 3:</label>
+      <input type="text" id="day3_person3" placeholder="Enter name">
+    </div>
+
+    <!-- Page 6: Common Themes -->
+    <div class="page" id="page6">
+      <div class="bible-animation">
+        <svg viewBox="0 0 24 24">
+          <rect x="4" y="2" width="16" height="20" rx="2"/>
+          <rect class="pages" x="6" y="4" width="12" height="16"/>
+        </svg>
+      </div>
+      <h2>Common Purpose Themes</h2>
+      <label>Are there any common themes that came up from the interviews?</label>
+      <textarea id="common_themes" placeholder="List common themes"></textarea>
+      <label>What is one thing you learned about yourself?</label>
+      <textarea id="common_learned" placeholder="Describe a discovery"></textarea>
+    </div>
+
+    <!-- Page 7: Admire Others -->
+    <div class="page" id="page7">
+      <div class="cross-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2v8H4v4h8v8h4v-8h8v-4h-8V2z"/>
+        </svg>
+      </div>
+      <h2>Admiring Purpose in Others</h2>
+      <p>Admiration reveals what you secretly wish you could have or be...</p>
+      <label>Person 1:</label>
+      <input type="text" id="admire_person1" placeholder="Enter name">
+      <label>What They Have I Admire:</label>
+      <textarea id="admire_qualities1" placeholder="Describe admired qualities"></textarea>
+      <label>Person 2:</label>
+      <input type="text" id="admire_person2" placeholder="Enter name">
+      <label>What They Have I Admire:</label>
+      <textarea id="admire_qualities2" placeholder="Describe admired qualities"></textarea>
+    </div>
+
+    <!-- Page 8: Day 6 -->
+    <div class="page" id="page8">
+      <div class="dove-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/>
+          <path class="wing" d="M14 8c0-2.2-1.8-4-4-4S6 5.8 6 8" transform-origin="center"/>
+        </svg>
+      </div>
+      <h2>Day 6: Turn Your Passions into Purpose</h2>
+      <label>What work would you do for free?</label>
+      <textarea id="day6_freeWork" placeholder="Describe the work"></textarea>
+      <label>What do you absolutely love that you lose track of time doing?</label>
+      <textarea id="day6_loseTime" placeholder="Describe the activity"></textarea>
+    </div>
+
+    <!-- Page 9: Royal Mindset -->
+    <div class="page" id="page9">
+      <div class="star-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </div>
+      <h2>Royal Mindset</h2>
+      <p><em>"Serve through your gift. Sow from your grace. Reap from your calling."</em></p>
+      <p><strong>Kingdom Teatime</strong></p>
+      <p>Reflect on how you can live out this mindset today.</p>
+      <textarea id="royal_mindset" placeholder="Write your thoughts"></textarea>
+    </div>
+
+    <!-- Page 10: Final Blessing -->
+    <div class="page" id="page10">
+      <div class="heart-animation">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+      </div>
+      <h2>Completion</h2>
+      <p style="text-align: center; font-size: 6vw; color: #6b21a8; animation: fadeIn 2s ease-in;">You are blessed!</p>
+      <p><em>"God is within her, she will not fall." - Psalm 46:5</em></p>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="buttons">
+      <button id="prevBtn" disabled onclick="goToPrevious()" ontouchstart="goToPrevious()">Previous</button>
+      <button id="nextBtn" onclick="goToNext()" ontouchstart="goToNext()">Next</button>
+    </div>
+
+    <!-- Fallback Navigation -->
+    <div class="fallback-nav">
+      <a href="#page1" onclick="goToPage(0)">1</a>
+      <a href="#page2" onclick="goToPage(1)">2</a>
+      <a href="#page3" onclick="goToPage(2)">3</a>
+      <a href="#page4" onclick="goToPage(3)">4</a>
+      <a href="#page5" onclick="goToPage(4)">5</a>
+      <a href="#page6" onclick="goToPage(5)">6</a>
+      <a href="#page7" onclick="goToPage(6)">7</a>
+      <a href="#page8" onclick="goToPage(7)">8</a>
+      <a href="#page9" onclick="goToPage(8)">9</a>
+      <a href="#page10" onclick="goToPage(9)">10</a>
+    </div>
+
+    <!-- Creator Mention -->
+    <div class="footer">
+      Created by Claudrine Arnell
+    </div>
+  </div>
+
+  <script>
+    let currentPage = 0;
+    const pages = document.querySelectorAll('.page');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    function showPage(index) {
+      pages.forEach((page, i) => {
+        page.style.display = i === index ? 'block' : 'none';
+      });
+      currentPage = index;
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === pages.length - 1;
+      window.scrollTo(0, 0);
+      console.log(`Navigated to page ${index + 1}`);
+    }
+
+    function goToPrevious() {
+      if (currentPage > 0) {
+        showPage(currentPage - 1);
+      }
+      console.log('Previous button triggered');
+    }
+
+    function goToNext() {
+      if (currentPage < pages.length - 1) {
+        showPage(currentPage + 1);
+      }
+      console.log('Next button triggered');
+    }
+
+    function goToPage(index) {
+      if (index >= 0 && index < pages.length) {
+        showPage(index);
+      }
+      console.log(`Jumped to page ${index + 1}`);
+    }
+
+    function loadData() {
+      const fields = [
+        'name', 'date', 'day1_serveOthers', 'day1_gifts', 'day2_bestSelf', 'day2_naturallyWell',
+        'day3_person1', 'day3_person2', 'day3_person3', 'common_themes', 'common_learned',
+        'admire_person1', 'admire_qualities1', 'admire_person2', 'admire_qualities2',
+        'day6_freeWork', 'day6_loseTime', 'royal_mindset'
+      ];
+      fields.forEach(field => {
+        const value = localStorage.getItem(field);
+        if (value) {
+          document.getElementById(field).value = value;
+        }
+      });
+    }
+
+    function saveData() {
+      const fields = [
+        'name', 'date', 'day1_serveOthers', 'day1_gifts', 'day2_bestSelf', 'day2_naturallyWell',
+        'day3_person1', 'day3_person2', 'day3_person3', 'common_themes', 'common_learned',
+        'admire_person1', 'admire_qualities1', 'admire_person2', 'admire_qualities2',
+        'day6_freeWork', 'day6_loseTime', 'royal_mindset'
+      ];
+      fields.forEach(field => {
+        const value = document.getElementById(field).value;
+        localStorage.setItem(field, value);
+      });
+    }
+
+    document.querySelectorAll('input, textarea').forEach(input => {
+      input.addEventListener('input', saveData);
+    });
+
+    loadData();
+    showPage(currentPage);
+  </script>
+</body>
+</html>
